@@ -350,13 +350,158 @@
         cancelAddAccountBtn.addEventListener('click', () => { addAccountFormContainer.classList.add('hidden'); addAccountBtn.classList.remove('hidden'); addAccountForm.reset(); });
         
         // --- Lógica de Firestore ---
-        addAccountForm.addEventListener('submit', async (e) => { e.preventDefault(); /* ... Lógica existente ... */ });
-        addCategoryForm.addEventListener('submit', async (e) => { e.preventDefault(); /* ... Lógica existente ... */ });
-        categoriesList.addEventListener('click', async (e) => { /* ... Lógica existente ... */ });
-        addDebtForm.addEventListener('submit', async (e) => { e.preventDefault(); /* ... Lógica existente ... */ });
-        debtsList.addEventListener('click', (e) => { /* ... Lógica existente ... */ });
-        makePaymentForm.addEventListener('submit', async (e) => { e.preventDefault(); /* ... Lógica existente ... */ });
-        transferForm.addEventListener('submit', async (e) => { e.preventDefault(); /* ... Lógica existente ... */ });
+        addAccountForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const user = auth.currentUser;
+            if (!user) return;
+            try {
+                const newAccount = {
+                    name: accountNameInput.value,
+                    type: accountTypeInput.value,
+                    balance: parseFloat(initialBalanceInput.value),
+                    owner: user.uid,
+                };
+                await addDoc(collection(db, 'users', user.uid, 'accounts'), newAccount);
+                addAccountForm.reset();
+                addAccountFormContainer.classList.add('hidden');
+                addAccountBtn.classList.remove('hidden');
+            } catch (error) {
+                console.error("Error adding account:", error);
+            }
+        });
+
+        addCategoryForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const user = auth.currentUser;
+            const categoryName = categoryNameInput.value.trim();
+            if (!user || categoryName === '') return;
+            try {
+                await addDoc(collection(db, 'users', user.uid, 'categories'), { name: categoryName });
+                categoryNameInput.value = '';
+            } catch (error) {
+                console.error("Error adding category:", error);
+            }
+        });
+
+        categoriesList.addEventListener('click', async (e) => {
+            if (e.target.matches('.delete-category-btn')) {
+                const user = auth.currentUser;
+                const categoryId = e.target.dataset.id;
+                if (!user || !categoryId) return;
+                try {
+                    await deleteDoc(doc(db, 'users', user.uid, 'categories', categoryId));
+                } catch (error) {
+                    console.error("Error deleting category:", error);
+                }
+            }
+        });
+
+        addDebtForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const user = auth.currentUser;
+            if (!user) return;
+            const newDebt = {
+                name: document.getElementById('debt-name').value,
+                totalAmount: parseFloat(document.getElementById('debt-total-amount').value),
+                amountPaid: 0,
+                owner: user.uid
+            };
+            try {
+                await addDoc(collection(db, 'users', user.uid, 'debts'), newDebt);
+                addDebtForm.reset();
+                addDebtFormContainer.classList.add('hidden');
+            } catch (error) {
+                console.error("Error adding debt:", error);
+            }
+        });
+        
+        debtsList.addEventListener('click', (e) => {
+            if (e.target.matches('.make-payment-btn')) {
+                const debtId = e.target.dataset.debtId;
+                const debtName = e.target.dataset.debtName;
+                const debtRemaining = e.target.dataset.debtRemaining;
+                
+                paymentModalTitle.textContent = `Hacer un Pago a "${debtName}"`;
+                paymentDebtIdInput.value = debtId;
+                document.getElementById('payment-amount').max = debtRemaining;
+                makePaymentModal.classList.remove('hidden');
+            }
+        });
+
+        makePaymentForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const user = auth.currentUser;
+            const debtId = paymentDebtIdInput.value;
+            const accountId = paymentAccountSelect.value;
+            const amount = parseFloat(document.getElementById('payment-amount').value);
+            const date = document.getElementById('payment-date').value;
+            if (!user || !debtId || !accountId || !amount || !date) return alert("Por favor, completa todos los campos.");
+            const debtRef = doc(db, 'users', user.uid, 'debts', debtId);
+            const accountRef = doc(db, 'users', user.uid, 'accounts', accountId);
+            try {
+                const debtDocForName = await getDoc(debtRef);
+                if (!debtDocForName.exists()) throw "La deuda no existe.";
+                await runTransaction(db, async (transaction) => {
+                    const debtDoc = await transaction.get(debtRef);
+                    const accountDoc = await transaction.get(accountRef);
+                    if (!debtDoc.exists() || !accountDoc.exists()) throw "La deuda o la cuenta no existen.";
+                    const debtData = debtDoc.data();
+                    const accountData = accountDoc.data();
+                    if (accountData.balance < amount) throw "Fondos insuficientes en la cuenta de origen.";
+                    if (amount > (debtData.totalAmount - debtData.amountPaid)) throw "El monto del pago excede el saldo restante de la deuda.";
+                    transaction.update(debtRef, { amountPaid: debtData.amountPaid + amount });
+                    transaction.update(accountRef, { balance: accountData.balance - amount });
+                });
+                await addDoc(collection(db, 'users', user.uid, 'transactions'), {
+                    type: 'expense',
+                    description: `Pago a ${debtDocForName.data().name}`,
+                    amount: amount,
+                    date: date,
+                    accountId: accountId,
+                    category: 'Pago de Deudas',
+                    owner: user.uid
+                });
+                makePaymentModal.classList.add('hidden');
+                makePaymentForm.reset();
+            } catch (error) {
+                console.error("Error al procesar el pago:", error);
+                alert("Error: " + error);
+            }
+        });
+
+        transferForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const fromAccountId = document.getElementById('transfer-from-account').value;
+            const toAccountId = document.getElementById('transfer-to-account').value;
+            const amount = parseFloat(document.getElementById('transfer-amount').value);
+            const date = document.getElementById('transfer-date').value;
+            const description = document.getElementById('transfer-description').value;
+
+            if (fromAccountId === toAccountId) return alert("La cuenta de origen y destino no pueden ser la misma.");
+            if (amount <= 0) return alert("El monto de la transferencia debe ser mayor a cero.");
+
+            const fromAccountRef = doc(db, 'users', user.uid, 'accounts', fromAccountId);
+            const toAccountRef = doc(db, 'users', user.uid, 'accounts', toAccountId);
+            
+            try {
+                await runTransaction(db, async (transaction) => {
+                    const fromDoc = await transaction.get(fromAccountRef);
+                    const toDoc = await transaction.get(toAccountRef);
+                    if (!fromDoc.exists() || !toDoc.exists()) throw "Una de las cuentas no existe.";
+                    const fromBalance = fromDoc.data().balance;
+                    if (fromBalance < amount) throw "Fondos insuficientes en la cuenta de origen.";
+                    transaction.update(fromAccountRef, { balance: fromBalance - amount });
+                    transaction.update(toAccountRef, { balance: toDoc.data().balance + amount });
+                });
+                closeTransferForm();
+            } catch (error) {
+                console.error("Error en la transferencia: ", error);
+                alert("Error en la transferencia: " + error);
+            }
+        });
         
         transactionForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -367,10 +512,7 @@
             const accountId = document.getElementById('transaction-account').value;
             const notes = document.getElementById('transaction-notes').value.trim();
 
-            if (!accountId) {
-                alert("Por favor, selecciona una cuenta.");
-                return;
-            }
+            if (!accountId) return alert("Por favor, selecciona una cuenta.");
 
             const newTransaction = {
                 type: currentTransactionType,
@@ -382,7 +524,6 @@
             };
 
             if (notes) newTransaction.notes = notes;
-
             if (currentTransactionType === 'expense') {
                 const category = document.getElementById('transaction-category').value;
                 if (category) newTransaction.category = category;
@@ -467,10 +608,22 @@
                     let optionsHtml = '<option value="" disabled selected>Selecciona una cuenta</option>';
                     snapshot.forEach((doc) => {
                         const account = { id: doc.id, ...doc.data() };
-                        accountsHtml += `<div>${account.name}</div>`; // Simplificado para brevedad
-                        optionsHtml += `<option value="${account.id}">${account.name} (${formatCurrency(account.balance)})</option>`;
+                        
+                        const balanceColor = account.balance < 0 ? 'text-red-600' : 'text-green-600';
+                        const formattedBalance = formatCurrency(account.balance);
+                        
+                        accountsHtml += `
+                            <div class="bg-gray-50 border border-gray-200 p-5 rounded-lg shadow-sm transition transform hover:scale-105">
+                                <div class="flex justify-between items-start">
+                                    <h3 class="text-xl font-bold text-gray-800">${account.name}</h3>
+                                    <span class="text-xs font-semibold text-indigo-800 bg-indigo-100 px-2 py-1 rounded-full">${account.type}</span>
+                                </div>
+                                <p class="text-3xl font-mono ${balanceColor} mt-4">${formattedBalance}</p>
+                            </div>
+                        `;
+                        optionsHtml += `<option value="${account.id}">${account.name} (${formattedBalance})</option>`;
                     });
-                    accountsList.innerHTML = accountsHtml;
+                    accountsList.innerHTML = accountsHtml || '<p class="text-gray-500 col-span-full">Aún no tienes cuentas. ¡Añade una para empezar!</p>';
                     document.getElementById('transaction-account').innerHTML = optionsHtml;
                     document.getElementById('transfer-from-account').innerHTML = optionsHtml;
                     document.getElementById('transfer-to-account').innerHTML = optionsHtml;
@@ -478,6 +631,142 @@
                 });
                 
                 // (Resto de onSnapshot listeners)
+                 const categoriesQuery = query(collection(db, 'users', user.uid, 'categories'));
+                unsubscribeFromCategories = onSnapshot(categoriesQuery, (snapshot) => {
+                    let categoriesHtml = '';
+                    let optionsHtml = '<option value="" disabled selected>Selecciona una categoría</option>';
+                    snapshot.forEach((doc) => {
+                        const category = { id: doc.id, ...doc.data() };
+                        categoriesHtml += `
+                            <span class="flex items-center bg-blue-100 text-blue-800 text-sm font-medium pl-3 pr-1 py-1 rounded-full">
+                                ${category.name}
+                                <button data-id="${category.id}" class="delete-category-btn ml-2 text-blue-600 hover:text-blue-800 font-bold">&times;</button>
+                            </span>
+                        `;
+                        optionsHtml += `<option value="${category.name}">${category.name}</option>`;
+                    });
+                    categoriesList.innerHTML = categoriesHtml || '<p class="text-gray-500 text-sm">No tienes categorías. Añade una arriba.</p>';
+                    document.getElementById('transaction-category').innerHTML = optionsHtml;
+                });
+
+                const debtsQuery = query(collection(db, 'users', user.uid, 'debts'));
+                unsubscribeFromDebts = onSnapshot(debtsQuery, (snapshot) => {
+                    let debtsHtml = '';
+                    snapshot.forEach((doc) => {
+                        const debt = { id: doc.id, ...doc.data() };
+                        const remaining = debt.totalAmount - debt.amountPaid;
+                        const progress = (debt.totalAmount > 0) ? (debt.amountPaid / debt.totalAmount) * 100 : 0;
+                        debtsHtml += `
+                        <div class="bg-gray-50 border border-gray-200 p-5 rounded-lg shadow-sm">
+                            <div class="flex justify-between items-start">
+                                <h3 class="text-xl font-bold text-gray-800">${debt.name}</h3>
+                                <span class="text-sm font-semibold ${remaining <= 0 ? 'text-green-800 bg-green-100' : 'text-purple-800 bg-purple-100'} px-2 py-1 rounded-full">
+                                    ${remaining <= 0 ? 'Pagada' : 'Pendiente'}
+                                </span>
+                            </div>
+                            <p class="text-gray-600 mt-2">${formatCurrency(debt.amountPaid)} de ${formatCurrency(debt.totalAmount)} pagados</p>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                                <div class="bg-purple-600 h-2.5 rounded-full" style="width: ${progress}%"></div>
+                            </div>
+                            ${remaining > 0 ? `
+                            <div class="text-right mt-4">
+                                <button class="make-payment-btn bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-3 rounded text-sm"
+                                    data-debt-id="${debt.id}" data-debt-name="${debt.name}" data-debt-remaining="${remaining}">
+                                    Hacer un Pago
+                                </button>
+                            </div>
+                            ` : ''}
+                        </div>`;
+                    });
+                    debtsList.innerHTML = debtsHtml || '<p class="text-gray-500 col-span-full">No tienes deudas registradas. ¡Felicidades!</p>';
+                });
+
+                const transactionsQuery = query(collection(db, 'users', user.uid, 'transactions'));
+                unsubscribeFromTransactions = onSnapshot(transactionsQuery, (snapshot) => {
+                    const allTransactions = [];
+                    snapshot.forEach(doc => allTransactions.push({ id: doc.id, ...doc.data() }));
+                    
+                    const thirtyDaysAgo = new Date();
+                    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+                    const totalIncome = allTransactions.filter(t => t.type === 'income' && new Date(t.date) >= thirtyDaysAgo).reduce((sum, t) => sum + t.amount, 0);
+                    const recentExpenses = allTransactions.filter(t => t.type === 'expense' && new Date(t.date) >= thirtyDaysAgo);
+                    const totalExpense = recentExpenses.reduce((sum, t) => sum + t.amount, 0);
+                    const balance = totalIncome - totalExpense;
+
+                    summaryIncomeEl.textContent = formatCurrency(totalIncome);
+                    summaryExpenseEl.textContent = formatCurrency(totalExpense);
+                    summaryBalanceEl.textContent = formatCurrency(balance);
+                    
+                    summaryBalanceCard.classList.remove('bg-green-100', 'bg-red-100');
+                    summaryBalanceTitle.classList.remove('text-green-800', 'text-red-800');
+                    summaryBalanceEl.classList.remove('text-green-900', 'text-red-900');
+                    if (balance >= 0) {
+                        summaryBalanceCard.classList.add('bg-green-100');
+                        summaryBalanceTitle.classList.add('text-green-800');
+                        summaryBalanceEl.classList.add('text-green-900');
+                    } else {
+                        summaryBalanceCard.classList.add('bg-red-100');
+                        summaryBalanceTitle.classList.add('text-red-800');
+                        summaryBalanceEl.classList.add('text-red-900');
+                    }
+                    
+                    const expensesByCategory = {};
+                    recentExpenses.forEach(t => {
+                        const category = t.category || 'Sin Categoría';
+                        expensesByCategory[category] = (expensesByCategory[category] || 0) + t.amount;
+                    });
+                    
+                    const labels = Object.keys(expensesByCategory);
+                    const data = Object.values(expensesByCategory);
+
+                    if (categoryChart) categoryChart.destroy();
+                    
+                    const ctx = document.getElementById('category-chart').getContext('2d');
+                    categoryChart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Gastos por Categoría',
+                                data: data,
+                                backgroundColor: ['rgba(255, 99, 132, 0.8)','rgba(54, 162, 235, 0.8)','rgba(255, 206, 86, 0.8)','rgba(75, 192, 192, 0.8)','rgba(153, 102, 255, 0.8)','rgba(255, 159, 64, 0.8)'],
+                                borderWidth: 1
+                            }]
+                        },
+                        options: { responsive: true, plugins: { legend: { position: 'top' } } }
+                    });
+
+                    const accountNames = {};
+                    getDocs(accountsQuery).then(accountSnapshot => {
+                        let transactionsHtml = '';
+                        accountSnapshot.forEach(doc => { accountNames[doc.id] = doc.data().name; });
+
+                        allTransactions.forEach((transaction) => {
+                            const formattedAmount = formatCurrency(transaction.amount);
+                            let transactionHtml = '';
+                            const notesIcon = transaction.notes ? `<div class="relative group ml-2"><span class="text-gray-400 cursor-pointer">ℹ️</span><div class="absolute bottom-0 left-5 mb-6 hidden group-hover:block w-48 bg-gray-800 text-white text-xs rounded py-2 px-3 z-10">${transaction.notes}</div></div>` : '';
+                            const deleteButton = `<button class="delete-transaction-btn text-gray-400 hover:text-red-500 text-2xl leading-none ml-2" data-id="${transaction.id}" data-type="${transaction.type}" data-amount="${transaction.amount}" data-account-id="${transaction.accountId}">&times;</button>`;
+
+                            switch(transaction.type) {
+                                case 'income':
+                                    transactionHtml = `<div class="flex items-center justify-between p-3 bg-white border-b border-gray-200 rounded-md shadow-sm"><div class="flex items-center"><div><p class="font-semibold text-gray-800">${transaction.description}</p><p class="text-sm text-gray-500">${new Date(transaction.date).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</p></div>${notesIcon}</div><div class="flex items-center"><p class="font-semibold text-green-600">+${formattedAmount}</p>${deleteButton}</div></div>`;
+                                    break;
+                                case 'expense':
+                                    const categoryPill = transaction.category ? `<span class="text-xs font-semibold text-gray-600 bg-gray-200 px-2 py-1 rounded-full ml-2">${transaction.category}</span>` : '';
+                                    transactionHtml = `<div class="flex items-center justify-between p-3 bg-white border-b border-gray-200 rounded-md shadow-sm"><div class="flex items-center"><div><p class="font-semibold text-gray-800">${transaction.description}</p><p class="text-sm text-gray-500">${new Date(transaction.date).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</p></div>${categoryPill}${notesIcon}</div><div class="flex items-center"><p class="font-semibold text-red-600">-${formattedAmount}</p>${deleteButton}</div></div>`;
+                                    break;
+                                case 'transfer-out': case 'transfer-in':
+                                    const isOut = transaction.type === 'transfer-out';
+                                    const transferDesc = transaction.description || (isOut ? `a ${accountNames[transaction.toAccount] || '...'}` : `desde ${accountNames[transaction.fromAccount] || '...'}`);
+                                    transactionHtml = `<div class="flex items-center justify-between p-3 bg-yellow-50 border-l-4 border-yellow-500 rounded-md"><div class="flex items-center"><span class="mr-3 text-yellow-600">🔁</span><div><p class="font-semibold text-gray-800">Transferencia ${transferDesc}</p><p class="text-sm text-gray-500">${new Date(transaction.date).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</p></div></div><p class="font-semibold ${isOut ? 'text-red-600' : 'text-green-600'}">${isOut ? '-' : '+'}${formattedAmount}</p></div>`;
+                                    break;
+                            }
+                            transactionsHtml += transactionHtml;
+                        });
+                        transactionsList.innerHTML = transactionsHtml || '<p class="text-gray-500 text-center py-4">No hay transacciones recientes.</p>';
+                    });
+                });
 
             } else {
                 appContainer.classList.add('hidden');
