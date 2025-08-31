@@ -1,40 +1,313 @@
-<!-- ... existing code ... -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Finanzas Personales</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+    <!-- Contenedor de Autenticación -->
+    <div id="auth-container">
+        <div class="bg-white p-8 rounded-lg shadow-md w-96">
+            <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">Accede a tu Cuenta</h2>
+            <form id="auth-form">
+                <div class="mb-4">
+                    <label for="email" class="block text-gray-700 text-sm font-bold mb-2">Correo Electrónico</label>
+                    <input type="email" id="email" placeholder="tu@email.com" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="mb-6">
+                    <label for="password" class="block text-gray-700 text-sm font-bold mb-2">Contraseña</label>
+                    <input type="password" id="password" placeholder="••••••••••" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <!-- Mensaje de Error -->
+                <div id="error-message" class="text-red-500 text-sm mb-4 text-center hidden"></div>
+                
+                <div class="flex items-center justify-between gap-4">
+                    <button type="button" id="login-btn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full">
+                        Iniciar Sesión
+                    </button>
+                    <button type="button" id="register-btn" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full">
+                        Registrarse
                     </button>
                 </div>
-                <div id="add-account-form-container" class="hidden bg-gray-50 p-6 rounded-lg shadow-inner mb-6">
-                    <!-- CORRECCIÓN: Formulario de Cuenta añadido -->
-                    <h3 class="text-xl font-semibold text-gray-700 mb-4">Nueva Cuenta</h3>
-                    <form id="add-account-form">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            </form>
+        </div>
+    </div>
+
+    <!-- Contenedor Principal de la Aplicación (Oculto por defecto) -->
+    <div id="app-container" class="hidden w-full max-w-5xl p-4">
+         <div class="bg-white p-8 rounded-lg shadow-md w-full">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+                <div class="mb-4 sm:mb-0">
+                    <h1 class="text-3xl font-bold text-gray-800">Mis Finanzas 📊</h1>
+                    <p class="text-gray-600">¡Bienvenido! Aquí gestionarás tus finanzas personales.</p>
+                </div>
+                <button id="logout-btn" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline self-start sm:self-center">
+                    Cerrar Sesión
+                </button>
+            </div>
+            
+            <!-- Secciones de la aplicación -->
+            <div id="accounts-section" class="mt-8">
+                <!-- Sección de Cuentas aquí... -->
+            </div>
+            <div id="categories-section" class="mt-12">
+                <!-- Sección de Categorías aquí... -->
+            </div>
+            <div id="transactions-section" class="mt-12">
+                 <div class="flex justify-between items-center mb-4">
+                     <h2 class="text-2xl font-semibold text-gray-700">Transacciones</h2>
+                     <div class="flex flex-wrap gap-2">
+                        <button id="add-expense-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-full focus:outline-none focus:shadow-outline transition duration-300">Nuevo Gasto</button>
+                        <button id="add-income-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-full focus:outline-none focus:shadow-outline transition duration-300">Nuevo Ingreso</button>
+                        <button id="add-transfer-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-full focus:outline-none focus:shadow-outline transition duration-300">Transferencia</button>
+                     </div>
+                </div>
+
+                <!-- Formulario de Transferencia (Oculto) -->
+                <div id="transfer-form-container" class="hidden bg-gray-50 p-6 rounded-lg shadow-inner mb-6">
+                    <h3 class="text-xl font-semibold text-gray-700 mb-4">Realizar Transferencia</h3>
+                    <form id="transfer-form">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                             <div>
-                                <label for="account-name" class="block text-sm font-medium text-gray-700">Nombre de la Cuenta</label>
-                                <input type="text" id="account-name" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                <label for="transfer-from-account" class="block text-sm font-medium text-gray-700">Cuenta de Origen</label>
+                                <select id="transfer-from-account" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"></select>
                             </div>
                             <div>
-                                <label for="account-type" class="block text-sm font-medium text-gray-700">Tipo de Cuenta</label>
-                                <select id="account-type" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                                    <option>Ahorro</option>
-                                    <option>Débito</option>
-                                    <option>Crédito</option>
-                                    <option>Inversión</option>
-                                    <option>Efectivo</option>
-                                </select>
+                                <label for="transfer-to-account" class="block text-sm font-medium text-gray-700">Cuenta de Destino</label>
+                                <select id="transfer-to-account" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500"></select>
                             </div>
                         </div>
-                        <div class="mt-4">
-                            <label for="initial-balance" class="block text-sm font-medium text-gray-700">Saldo Inicial ($)</label>
-                            <input type="number" id="initial-balance" step="0.01" required placeholder="0.00" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label for="transfer-amount" class="block text-sm font-medium text-gray-700">Monto ($)</label>
+                                <input type="number" id="transfer-amount" step="0.01" required placeholder="0.00" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500">
+                            </div>
+                            <div>
+                                <label for="transfer-date" class="block text-sm font-medium text-gray-700">Fecha</label>
+                                <input type="date" id="transfer-date" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500">
+                            </div>
+                        </div>
+                        <div>
+                           <label for="transfer-description" class="block text-sm font-medium text-gray-700">Descripción (Opcional)</label>
+                           <input type="text" id="transfer-description" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500">
                         </div>
                         <div class="mt-6 flex justify-end gap-4">
-                            <button type="button" id="cancel-add-account-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                                Cancelar
-                            </button>
-                            <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                                Guardar Cuenta
-                            </button>
+                            <button type="button" id="cancel-transfer-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Cancelar</button>
+                            <button type="submit" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Guardar Transferencia</button>
                         </div>
                     </form>
                 </div>
-                <div id="accounts-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <!-- Las tarjetas de las cuentas se insertarán aquí dinámicamente -->
-<!-- ... existing code ... -->
+                
+                <div id="transaction-form-container" class="hidden bg-gray-50 p-6 rounded-lg shadow-inner mb-6">
+                    <!-- Formulario de Transacciones aquí... -->
+                </div>
+                <div id="transactions-list" class="space-y-3">
+                    <!-- Lista de Transacciones aquí... -->
+                </div>
+            </div>
+         </div>
+    </div>
+
+    <!-- Lógica de JavaScript y Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, onSnapshot, doc, getDoc, updateDoc, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+
+        // --- Configuración y Inicialización de Firebase (sin cambios) ---
+        const firebaseConfig = {
+          apiKey: "AIzaSyCGofDOTMCRucjWzvnceT-d787mdnVzU7M",
+          authDomain: "appfinanzaz.firebaseapp.com",
+          projectId: "appfinanzaz",
+          storageBucket: "appfinanzaz.firebasestorage.app",
+          messagingSenderId: "695663371696",
+          appId: "1:695663371696:web:500079de68b600da36a275",
+          measurementId: "G-KEP5MGYDV3"
+        };
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // --- Referencias a elementos del DOM ---
+        // (Se omiten las referencias existentes por brevedad)
+        const addTransferBtn = document.getElementById('add-transfer-btn');
+        const transferFormContainer = document.getElementById('transfer-form-container');
+        const transferForm = document.getElementById('transfer-form');
+        const cancelTransferBtn = document.getElementById('cancel-transfer-btn');
+        const transferFromAccountSelect = document.getElementById('transfer-from-account');
+        const transferToAccountSelect = document.getElementById('transfer-to-account');
+        
+        let unsubscribeFromAccounts, unsubscribeFromTransactions, unsubscribeFromCategories;
+
+        // --- Funciones de UI ---
+        // (Se omiten las funciones existentes por brevedad)
+        const openTransactionForm = (type) => { /* ... */ };
+        const closeTransactionForm = () => { /* ... */ };
+        const openTransferForm = () => {
+            transferFormContainer.classList.remove('hidden');
+        };
+        const closeTransferForm = () => {
+            transferFormContainer.classList.add('hidden');
+            transferForm.reset();
+        };
+
+        // --- Listeners de UI ---
+        addTransferBtn.addEventListener('click', openTransferForm);
+        cancelTransferBtn.addEventListener('click', closeTransferForm);
+        // (Se omiten los listeners existentes por brevedad)
+
+        // --- Lógica de Firestore: Transferencias ---
+        transferForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const fromAccountId = transferFromAccountSelect.value;
+            const toAccountId = transferToAccountSelect.value;
+            const amount = parseFloat(document.getElementById('transfer-amount').value);
+            const date = document.getElementById('transfer-date').value;
+            const description = document.getElementById('transfer-description').value;
+
+            // Validación
+            if (fromAccountId === toAccountId) {
+                alert("La cuenta de origen y destino no pueden ser la misma.");
+                return;
+            }
+            if (amount <= 0) {
+                alert("El monto de la transferencia debe ser mayor a cero.");
+                return;
+            }
+
+            const fromAccountRef = doc(db, 'users', user.uid, 'accounts', fromAccountId);
+            const toAccountRef = doc(db, 'users', user.uid, 'accounts', toAccountId);
+            
+            try {
+                // Ejecutar la transacción atómica
+                await runTransaction(db, async (transaction) => {
+                    const fromDoc = await transaction.get(fromAccountRef);
+                    const toDoc = await transaction.get(toAccountRef);
+
+                    if (!fromDoc.exists() || !toDoc.exists()) {
+                        throw "Una de las cuentas no existe.";
+                    }
+
+                    const fromBalance = fromDoc.data().balance;
+                    if (fromBalance < amount) {
+                        throw "Fondos insuficientes en la cuenta de origen.";
+                    }
+
+                    // Actualizar saldos
+                    transaction.update(fromAccountRef, { balance: fromBalance - amount });
+                    transaction.update(toAccountRef, { balance: toDoc.data().balance + amount });
+                });
+
+                // Si la transacción tuvo éxito, registrar las operaciones
+                const fromAccountName = transferFromAccountSelect.options[transferFromAccountSelect.selectedIndex].text;
+                const toAccountName = transferToAccountSelect.options[transferToAccountSelect.selectedIndex].text;
+                
+                const transactionsCollectionRef = collection(db, 'users', user.uid, 'transactions');
+                
+                // Registro de salida
+                await addDoc(transactionsCollectionRef, {
+                    type: 'transfer-out',
+                    amount: amount,
+                    date: date,
+                    description: description || `Transferencia a ${toAccountName}`,
+                    fromAccount: fromAccountId,
+                    toAccount: toAccountId,
+                    owner: user.uid
+                });
+
+                // Registro de entrada
+                await addDoc(transactionsCollectionRef, {
+                    type: 'transfer-in',
+                    amount: amount,
+                    date: date,
+                    description: description || `Transferencia desde ${fromAccountName}`,
+                    fromAccount: fromAccountId,
+                    toAccount: toAccountId,
+                    owner: user.uid
+                });
+                
+                closeTransferForm();
+
+            } catch (error) {
+                console.error("Error en la transferencia: ", error);
+                alert("Error en la transferencia: " + error);
+            }
+        });
+
+
+        // --- Observador del estado de autenticación (Lógica Principal) ---
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // (Lógica de autenticación existente)
+                appContainer.classList.remove('hidden');
+
+                // --- Listener de Cuentas (Modificado) ---
+                const accountsQuery = query(collection(db, 'users', user.uid, 'accounts'));
+                unsubscribeFromAccounts = onSnapshot(accountsQuery, (snapshot) => {
+                    let accountsHtml = '';
+                    let optionsHtml = '<option value="" disabled selected>Selecciona una cuenta</option>';
+                    snapshot.forEach((doc) => {
+                        const account = { id: doc.id, ...doc.data() };
+                        // (Renderizado de tarjetas de cuenta existente)
+                        optionsHtml += `<option value="${account.id}">${account.name} (${account.balance.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })})</option>`;
+                    });
+                    // (Actualización de accountsList existente)
+                    // transactionAccountSelect.innerHTML = optionsHtml;
+                    transferFromAccountSelect.innerHTML = optionsHtml;
+                    transferToAccountSelect.innerHTML = optionsHtml;
+                });
+
+                // --- Listener de Transacciones (Modificado) ---
+                const transactionsQuery = query(collection(db, 'users', user.uid, 'transactions'));
+                unsubscribeFromTransactions = onSnapshot(transactionsQuery, (snapshot) => {
+                    let transactionsHtml = '';
+                    snapshot.forEach((doc) => {
+                        const transaction = doc.data();
+                        const formattedAmount = transaction.amount.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+                        let transactionHtml = '';
+
+                        switch(transaction.type) {
+                            case 'income':
+                                transactionHtml = `<div class="flex items-center justify-between p-3 bg-green-50 border-l-4 border-green-500 rounded-md">...</div>`;
+                                break;
+                            case 'expense':
+                                transactionHtml = `<div class="flex items-center justify-between p-3 bg-red-50 border-l-4 border-red-500 rounded-md">...</div>`;
+                                break;
+                            case 'transfer-out':
+                            case 'transfer-in':
+                                const isOut = transaction.type === 'transfer-out';
+                                transactionHtml = `
+                                <div class="flex items-center justify-between p-3 bg-yellow-50 border-l-4 border-yellow-500 rounded-md">
+                                    <div class="flex items-center">
+                                        <span class="mr-3 text-yellow-600">🔁</span>
+                                        <div>
+                                            <p class="font-semibold text-gray-800">${transaction.description}</p>
+                                            <p class="text-sm text-gray-500">${new Date(transaction.date).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                                        </div>
+                                    </div>
+                                    <p class="font-semibold ${isOut ? 'text-red-600' : 'text-green-600'}">${isOut ? '-' : '+'}${formattedAmount}</p>
+                                </div>
+                                `;
+                                break;
+                        }
+                        transactionsHtml += transactionHtml;
+                    });
+                    // (Actualización de transactionsList existente)
+                });
+                // (Listeners de Categorías existentes)
+
+            } else {
+                // (Lógica de desautenticación existente)
+            }
+        });
+    </script>
+</body>
+</html>
+
