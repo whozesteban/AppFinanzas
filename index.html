@@ -38,19 +38,73 @@
     </div>
 
     <!-- Contenedor Principal de la Aplicación (Oculto por defecto) -->
-    <div id="app-container" class="hidden text-center">
-         <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-4xl">
-            <h1 class="text-4xl font-bold mb-6 text-gray-800">Mis Finanzas 📊</h1>
-            <p class="text-gray-600 mb-6">¡Bienvenido! Aquí gestionarás tus finanzas personales.</p>
-            <button id="logout-btn" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                Cerrar Sesión
-            </button>
+    <div id="app-container" class="hidden w-full max-w-5xl p-4">
+         <div class="bg-white p-8 rounded-lg shadow-md w-full">
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">Mis Finanzas 📊</h1>
+                    <p class="text-gray-600">¡Bienvenido! Aquí gestionarás tus finanzas personales.</p>
+                </div>
+                <button id="logout-btn" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                    Cerrar Sesión
+                </button>
+            </div>
+            
+            <!-- Sección de Cuentas -->
+            <div class="mt-8">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold text-gray-700">Mis Cuentas</h2>
+                    <button id="add-account-btn" class="bg-indigo-500 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-full focus:outline-none focus:shadow-outline transition duration-300">
+                        + Añadir Cuenta
+                    </button>
+                </div>
+
+                <!-- Formulario para Añadir Cuenta (Oculto) -->
+                <div id="add-account-form-container" class="hidden bg-gray-50 p-6 rounded-lg shadow-inner mb-6">
+                    <h3 class="text-xl font-semibold text-gray-700 mb-4">Nueva Cuenta</h3>
+                    <form id="add-account-form">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="account-name" class="block text-sm font-medium text-gray-700">Nombre de la Cuenta</label>
+                                <input type="text" id="account-name" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label for="account-type" class="block text-sm font-medium text-gray-700">Tipo de Cuenta</label>
+                                <select id="account-type" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option>Ahorro</option>
+                                    <option>Débito</option>
+                                    <option>Crédito</option>
+                                    <option>Inversión</option>
+                                    <option>Efectivo</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <label for="initial-balance" class="block text-sm font-medium text-gray-700">Saldo Inicial ($)</label>
+                            <input type="number" id="initial-balance" step="0.01" required placeholder="0.00" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div class="mt-6 flex justify-end gap-4">
+                            <button type="button" id="cancel-add-account-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                                Guardar Cuenta
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Lista de Cuentas -->
+                <div id="accounts-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Las tarjetas de las cuentas se insertarán aquí dinámicamente -->
+                </div>
+            </div>
          </div>
     </div>
 
     <!-- Lógica de JavaScript y Firebase -->
     <script type="module">
-        // Importa las funciones que necesitas de los SDKs de Firebase
+        // Importa las funciones de Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
         import { 
             getAuth, 
@@ -59,8 +113,15 @@
             signOut, 
             onAuthStateChanged 
         } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+        import { 
+            getFirestore, 
+            collection, 
+            addDoc, 
+            query, 
+            onSnapshot
+        } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 
-        // Tu configuración de la aplicación web de Firebase
+        // Configuración de Firebase
         const firebaseConfig = {
           apiKey: "AIzaSyCGofDOTMCRucjWzvnceT-d787mdnVzU7M",
           authDomain: "appfinanzaz.firebaseapp.com",
@@ -74,8 +135,9 @@
         // Inicializar Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
+        const db = getFirestore(app);
 
-        // Obtener referencias a los elementos del DOM
+        // Referencias a elementos del DOM de Autenticación
         const authContainer = document.getElementById('auth-container');
         const appContainer = document.getElementById('app-container');
         const loginBtn = document.getElementById('login-btn');
@@ -85,98 +147,151 @@
         const passwordInput = document.getElementById('password');
         const errorMessageDiv = document.getElementById('error-message');
 
-        // Función para mostrar errores
+        // Referencias a elementos del DOM de Cuentas
+        const addAccountBtn = document.getElementById('add-account-btn');
+        const addAccountFormContainer = document.getElementById('add-account-form-container');
+        const addAccountForm = document.getElementById('add-account-form');
+        const cancelAddAccountBtn = document.getElementById('cancel-add-account-btn');
+        const accountsList = document.getElementById('accounts-list');
+        const accountNameInput = document.getElementById('account-name');
+        const accountTypeInput = document.getElementById('account-type');
+        const initialBalanceInput = document.getElementById('initial-balance');
+
+        let unsubscribeFromAccounts; // Para detener el listener de Firestore al cerrar sesión
+
+        // Funciones de UI
         const showError = (message) => {
             errorMessageDiv.textContent = message;
             errorMessageDiv.classList.remove('hidden');
         };
-
-        // Función para limpiar errores
         const clearError = () => {
             errorMessageDiv.textContent = '';
             errorMessageDiv.classList.add('hidden');
         };
 
-        // --- Event Listeners para Autenticación ---
+        // --- Lógica de la interfaz de Cuentas ---
+        addAccountBtn.addEventListener('click', () => {
+            addAccountFormContainer.classList.remove('hidden');
+            addAccountBtn.classList.add('hidden');
+        });
 
-        // Registrar nuevo usuario
+        cancelAddAccountBtn.addEventListener('click', () => {
+            addAccountFormContainer.classList.add('hidden');
+            addAccountBtn.classList.remove('hidden');
+            addAccountForm.reset();
+        });
+
+        // --- Lógica de Firestore ---
+        // Guardar nueva cuenta
+        addAccountForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const newAccount = {
+                name: accountNameInput.value,
+                type: accountTypeInput.value,
+                balance: parseFloat(initialBalanceInput.value),
+                owner: user.uid
+            };
+
+            try {
+                const accountsCollectionRef = collection(db, 'users', user.uid, 'accounts');
+                await addDoc(accountsCollectionRef, newAccount);
+                console.log('Cuenta añadida con éxito');
+                addAccountForm.reset();
+                addAccountFormContainer.classList.add('hidden');
+                addAccountBtn.classList.remove('hidden');
+            } catch (error) {
+                console.error("Error al añadir la cuenta: ", error);
+                // Aquí podrías mostrar un error al usuario en la UI
+            }
+        });
+
+        // --- Event Listeners para Autenticación ---
         registerBtn.addEventListener('click', async (e) => {
             e.preventDefault();
             clearError();
             const email = emailInput.value;
             const password = passwordInput.value;
-
             if (!email || !password) {
                 showError("Por favor, ingresa email y contraseña.");
                 return;
             }
-
             try {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                console.log('Usuario registrado:', userCredential.user);
+                await createUserWithEmailAndPassword(auth, email, password);
             } catch (error) {
-                console.error("Error de registro:", error.code);
-                if (error.code === 'auth/email-already-in-use') {
-                    showError("Este correo electrónico ya está en uso.");
-                } else if (error.code === 'auth/weak-password') {
-                    showError("La contraseña debe tener al menos 6 caracteres.");
-                } else {
-                    showError("Error al registrarse. Verifica tus datos.");
-                }
+                if (error.code === 'auth/email-already-in-use') showError("Este correo electrónico ya está en uso.");
+                else if (error.code === 'auth/weak-password') showError("La contraseña debe tener al menos 6 caracteres.");
+                else showError("Error al registrarse. Verifica tus datos.");
             }
         });
 
-        // Iniciar sesión
         loginBtn.addEventListener('click', async (e) => {
             e.preventDefault();
             clearError();
             const email = emailInput.value;
             const password = passwordInput.value;
-
             if (!email || !password) {
                 showError("Por favor, ingresa email y contraseña.");
                 return;
             }
-            
             try {
-                const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                console.log('Usuario ha iniciado sesión:', userCredential.user);
+                await signInWithEmailAndPassword(auth, email, password);
             } catch (error) {
-                console.error("Error de inicio de sesión:", error.code);
                 showError("Email o contraseña incorrectos.");
             }
         });
 
-        // Cerrar sesión
-        logoutBtn.addEventListener('click', async () => {
-            try {
-                await signOut(auth);
-                console.log('Sesión cerrada');
-            } catch (error) {
-                console.error("Error al cerrar sesión:", error);
-            }
+        logoutBtn.addEventListener('click', () => {
+            signOut(auth);
         });
-
 
         // --- Observador del estado de autenticación (Lógica Principal) ---
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                // Usuario está autenticado
-                console.log('Usuario detectado:', user);
+                // Usuario autenticado
                 authContainer.classList.add('hidden');
                 appContainer.classList.remove('hidden');
+
+                // Escuchar cambios en las cuentas del usuario
+                const accountsQuery = query(collection(db, 'users', user.uid, 'accounts'));
+                unsubscribeFromAccounts = onSnapshot(accountsQuery, (snapshot) => {
+                    let html = '';
+                    snapshot.forEach((doc) => {
+                        const account = doc.data();
+                        const balanceColor = account.balance < 0 ? 'text-red-600' : 'text-green-600';
+                        const formattedBalance = account.balance.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+                        
+                        html += `
+                            <div class="bg-gray-50 border border-gray-200 p-5 rounded-lg shadow-sm transition transform hover:scale-105">
+                                <div class="flex justify-between items-start">
+                                    <h3 class="text-xl font-bold text-gray-800">${account.name}</h3>
+                                    <span class="text-xs font-semibold text-indigo-800 bg-indigo-100 px-2 py-1 rounded-full">${account.type}</span>
+                                </div>
+                                <p class="text-3xl font-mono ${balanceColor} mt-4">${formattedBalance}</p>
+                            </div>
+                        `;
+                    });
+                    accountsList.innerHTML = html || '<p class="text-gray-500">Aún no tienes cuentas. ¡Añade una para empezar!</p>';
+                });
+
             } else {
-                // Usuario no está autenticado
-                console.log('No hay usuario.');
+                // Usuario no autenticado
                 authContainer.classList.remove('hidden');
                 appContainer.classList.add('hidden');
-                // Limpiar campos del formulario al cerrar sesión
                 emailInput.value = '';
                 passwordInput.value = '';
                 clearError();
+
+                // Detener el listener de Firestore si existe
+                if (unsubscribeFromAccounts) {
+                    unsubscribeFromAccounts();
+                }
+                accountsList.innerHTML = ''; // Limpiar la lista de cuentas
             }
         });
-
     </script>
 </body>
 </html>
+
