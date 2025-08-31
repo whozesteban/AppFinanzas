@@ -339,11 +339,62 @@
         addDebtForm.addEventListener('submit', async (e) => { /* ... */ });
         debtsList.addEventListener('click', (e) => { /* ... */ });
         makePaymentForm.addEventListener('submit', async (e) => { /* ... */ });
+        
+        // --- Listener de Transacciones (CORREGIDO) ---
         transactionForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const user = auth.currentUser;
-            if (!user) return;
-            // (La lógica completa para guardar transacciones con notas está en la versión anterior)
+            if (!user || !currentTransactionType) return;
+
+            const amount = parseFloat(document.getElementById('transaction-amount').value);
+            const accountId = document.getElementById('transaction-account').value;
+            const notes = document.getElementById('transaction-notes').value.trim();
+
+            if (!accountId) {
+                alert("Por favor, selecciona una cuenta.");
+                return;
+            }
+
+            const newTransaction = {
+                type: currentTransactionType,
+                description: document.getElementById('transaction-description').value,
+                amount: amount,
+                date: document.getElementById('transaction-date-normal').value,
+                accountId: accountId,
+                owner: user.uid
+            };
+
+            if (notes) {
+                newTransaction.notes = notes;
+            }
+
+            if (currentTransactionType === 'expense') {
+                const category = document.getElementById('transaction-category').value;
+                if (category) {
+                   newTransaction.category = category;
+                }
+            }
+
+            try {
+                // 1. Guardar la nueva transacción
+                await addDoc(collection(db, 'users', user.uid, 'transactions'), newTransaction);
+
+                // 2. Actualizar el saldo de la cuenta
+                const accountRef = doc(db, 'users', user.uid, 'accounts', accountId);
+                const accountSnap = await getDoc(accountRef);
+                if (accountSnap.exists()) {
+                    const currentBalance = accountSnap.data().balance;
+                    const newBalance = currentTransactionType === 'income' 
+                        ? currentBalance + amount 
+                        : currentBalance - amount;
+                    await updateDoc(accountRef, { balance: newBalance });
+                }
+
+                closeTransactionForm();
+            } catch (error) {
+                console.error("Error al guardar la transacción: ", error);
+                alert("Hubo un error al guardar la transacción.");
+            }
         });
 
         // --- Lógica de Eliminación de Transacciones ---
