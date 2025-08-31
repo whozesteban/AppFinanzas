@@ -235,7 +235,19 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // --- Referencias a elementos del DOM ---
+        // --- Referencias a elementos del DOM (Restauradas y completas) ---
+        const authContainer = document.getElementById('auth-container');
+        const appContainer = document.getElementById('app-container');
+        const loginBtn = document.getElementById('login-btn');
+        const registerBtn = document.getElementById('register-btn');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const errorMessageDiv = document.getElementById('error-message');
+        const logoutBtn = document.getElementById('logout-btn');
+        const addAccountBtn = document.getElementById('add-account-btn');
+        const addAccountFormContainer = document.getElementById('add-account-form-container');
+        const addAccountForm = document.getElementById('add-account-form');
+        const cancelAddAccountBtn = document.getElementById('cancel-add-account-btn');
         const debtsList = document.getElementById('debts-list');
         const addDebtBtn = document.getElementById('add-debt-btn');
         const addDebtFormContainer = document.getElementById('add-debt-form-container');
@@ -247,14 +259,21 @@
         const paymentModalTitle = document.getElementById('payment-modal-title');
         const paymentDebtIdInput = document.getElementById('payment-debt-id');
         const paymentAccountSelect = document.getElementById('payment-account');
-
+        
         let categoryChart; 
         let unsubscribeFromAccounts, unsubscribeFromTransactions, unsubscribeFromCategories, unsubscribeFromDebts;
 
-        // --- Listeners de UI para Deudas ---
+        // --- Funciones de UI (Restauradas) ---
+        const showError = (message) => { errorMessageDiv.textContent = message; errorMessageDiv.classList.remove('hidden'); };
+        const clearError = () => { errorMessageDiv.textContent = ''; errorMessageDiv.classList.add('hidden'); };
+
+        // --- Listeners de UI ---
         addDebtBtn.addEventListener('click', () => addDebtFormContainer.classList.remove('hidden'));
         cancelAddDebtBtn.addEventListener('click', () => addDebtFormContainer.classList.add('hidden'));
         cancelPaymentBtn.addEventListener('click', () => makePaymentModal.classList.add('hidden'));
+        addAccountBtn.addEventListener('click', () => { addAccountFormContainer.classList.remove('hidden'); addAccountBtn.classList.add('hidden'); });
+        cancelAddAccountBtn.addEventListener('click', () => { addAccountFormContainer.classList.add('hidden'); addAccountBtn.classList.remove('hidden'); addAccountForm.reset(); });
+
 
         // --- Lógica de Firestore: Añadir Deuda ---
         addDebtForm.addEventListener('submit', async (e) => {
@@ -309,6 +328,9 @@
             const accountRef = doc(db, 'users', user.uid, 'accounts', accountId);
 
             try {
+                const debtDocForName = await getDoc(debtRef); // Get doc once for the name
+                if (!debtDocForName.exists()) throw "La deuda no existe.";
+
                 await runTransaction(db, async (transaction) => {
                     const debtDoc = await transaction.get(debtRef);
                     const accountDoc = await transaction.get(accountRef);
@@ -334,7 +356,7 @@
                 // Transacción exitosa, ahora registrar el gasto
                 await addDoc(collection(db, 'users', user.uid, 'transactions'), {
                     type: 'expense',
-                    description: `Pago a ${debtDoc.data().name}`,
+                    description: `Pago a ${debtDocForName.data().name}`,
                     amount: amount,
                     date: date,
                     accountId: accountId,
@@ -350,22 +372,55 @@
                 alert("Error: " + error);
             }
         });
+        
+        // --- Lógica de Autenticación (RESTAURADA) ---
+        loginBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            clearError();
+            try {
+                await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+            } catch (error) {
+                showError("Email o contraseña incorrectos.");
+            }
+        });
+
+        registerBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            clearError();
+            try {
+                await createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+            } catch (error) {
+                if (error.code === 'auth/email-already-in-use') {
+                    showError("Este correo electrónico ya está en uso.");
+                } else if (error.code === 'auth/weak-password') {
+                    showError("La contraseña debe tener al menos 6 caracteres.");
+                } else {
+                    showError("Error al registrarse. Verifica tus datos.");
+                }
+            }
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            signOut(auth);
+        });
 
         // --- Observador del estado de autenticación (Lógica Principal) ---
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 // ... (lógica existente para mostrar app, listeners de cuentas, categorías, transacciones y dashboard)
-                
+                appContainer.classList.remove('hidden');
+                authContainer.classList.add('hidden');
+
                 // --- Listener de Cuentas (modificado para poblar selector de pago) ---
                 const accountsQuery = query(collection(db, 'users', user.uid, 'accounts'));
                 unsubscribeFromAccounts = onSnapshot(accountsQuery, (snapshot) => {
                     let optionsHtml = '<option value="" disabled selected>Selecciona una cuenta</option>';
+                    // ... (resto de la lógica de cuentas)
                     snapshot.forEach((doc) => {
                         const account = { id: doc.id, ...doc.data() };
                         const formattedBalance = account.balance.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
                         optionsHtml += `<option value="${account.id}">${account.name} (${formattedBalance})</option>`;
                     });
-                    // ... (actualización de otros selectores)
                     paymentAccountSelect.innerHTML = optionsHtml;
                 });
 
@@ -376,7 +431,7 @@
                     snapshot.forEach((doc) => {
                         const debt = { id: doc.id, ...doc.data() };
                         const remaining = debt.totalAmount - debt.amountPaid;
-                        const progress = (debt.amountPaid / debt.totalAmount) * 100;
+                        const progress = (debt.totalAmount > 0) ? (debt.amountPaid / debt.totalAmount) * 100 : 0;
                         const formatCurrency = (val) => val.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 
                         debtsHtml += `
@@ -409,7 +464,13 @@
 
             } else {
                 // ... (lógica de cierre de sesión)
+                appContainer.classList.add('hidden');
+                authContainer.classList.remove('hidden');
                 if (unsubscribeFromDebts) unsubscribeFromDebts();
+                if (unsubscribeFromAccounts) unsubscribeFromAccounts();
+                if (unsubscribeFromCategories) unsubscribeFromCategories();
+                if (unsubscribeFromTransactions) unsubscribeFromTransactions();
+                if(categoryChart) categoryChart.destroy();
             }
         });
 
